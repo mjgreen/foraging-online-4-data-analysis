@@ -32,14 +32,15 @@ get <- function(){
       mutate(age=ifelse("please type your age" %in% names(fin),`please type your age`,as.numeric(NA))) %>%
       mutate(sex=ifelse("please indicate your gender" %in% names(fin),`please indicate your gender`,as.character(NA))) %>%
       rename(pointer='please select your pointing device') %>% 
+      select(-condition) %>% 
       rename(condition=conditionProportion) %>% 
-      rename(trial=trialCOunt) %>% 
+      rename(trial=trialCount) %>% 
       rename(times=current_time_list) %>% 
       rename(frames=frame_list) %>% 
       rename(events=myevent_list) %>% 
       rename(trees=clicked_in_cells) %>% 
-      rename(points=points_list) %>% 
-      select(date, participant, condition, phase, trial, times, frames, events, trees, points)
+      rename(npoints=points_list) %>% 
+      select(date, participant, condition, phase, trial, times, frames, events, trees, npoints)
     # f <- f %>% filter(!is.na(trial))
     all_files <- bind_rows(dat, this_file) # all_files is still a row-per-trial layout, you need to extract the lists to get row-per-frame layout
   }
@@ -71,8 +72,8 @@ get <- function(){
         tree=d$clicked_in_cells %>% str_sub(start=2,end=-2) %>% str_split(pattern=',') %>% unlist() %>% as_tibble_col() %>% pull() %>% as.numeric(),
         row=ifelse(tree==-1,NA,floor(tree/24)),
         col=ifelse(tree==-1,NA,tree%%24),
-        points=d$points_list %>% str_sub(start=2,end=-2) %>% str_split(pattern=',') %>% unlist() %>% as_tibble_col() %>% pull() %>% as.numeric(),
-        points_inc = points>lag(points,default=FALSE)
+        npoints=d$points_list %>% str_sub(start=2,end=-2) %>% str_split(pattern=',') %>% unlist() %>% as_tibble_col() %>% pull() %>% as.numeric(),
+        points_inc = npoints>lag(npoints,default=FALSE)
       )
       # figure out ignored lo
       temp <- temp %>% mutate(visit_lo=ifelse((event=="sustained click in low value"),tree,NA))
@@ -116,7 +117,7 @@ e <- e %>% filter(event != 'mouse newly released')
 e <- e %>% filter(event != 'mouse newly down')
 e <- e %>% filter(event != "attempt to click n drag detected and rejected")
 e <- e %>% filter(event != "click in empty")
-e <- e %>% filter(!(event==lead(event)&tree==lead(tree)&points==lead(points)&trial==lead(trial)))
+e <- e %>% filter(!(event==lead(event)&tree==lead(tree)&npoints==lead(npoints)&trial==lead(trial)))
 e <- e %>% filter(!(event=="sustained click in low value"&lead(event)=="consumed low value"&tree==lead(tree)&trial==lead(trial)))
 e <- e %>% filter(!(event=="sustained click in high value"&lead(event)=="consumed high value"&tree==lead(tree)&trial==lead(trial)))
 e <- e %>% mutate(rejection_rate_difference = reject_apple - reject_banana)
@@ -130,7 +131,7 @@ e <- e %>% group_by(subj, trial) %>%
 # average over per-event data to get per-trial data (lossy)
 f <- e %>% 
   group_by(condition, id, os, date, pointer, subj, trial) %>% 
-  summarise(score=max(points),
+  summarise(score=max(npoints),
             ignl=length(na.omit(unique(ign_lo))),
             ignh=length(na.omit(unique(ign_hi))),
             visl=length(na.omit(unique(visit_lo))),

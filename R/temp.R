@@ -1,11 +1,11 @@
 require(tidyverse)
 require(ggpubr)
 fls <- list.files(path='../data', pattern='*.csv', full.names=TRUE)
-all_subs = tibble()
+all_files = tibble()
 i=0
 for (fl in fls) {
   i=i+1
-  cat(i, fl,'\n')
+  cat('reading file #', i, fl,'\n')
   fin <- read_csv(fl, col_types = cols())
   this_file <- fin %>% 
     mutate(subject=NA) %>% 
@@ -20,20 +20,28 @@ for (fl in fls) {
     rename(trees=clicked_in_cells) %>% 
     mutate(points=points_list) %>% 
     select(date, participant, subject, condition, phase, trial, times, frames, events, trees, points)
-  # f <- f %>% filter(!is.na(trial))
-  all_subs <- bind_rows(all_subs, this_file) # all_subs is still a row-per-trial layout, you need to extract the lists to get row-per-frame layout
+  all_files <- bind_rows(all_files, this_file) 
 }
-cat('finished reading csv files')
+cat('finished reading csv files\n')
+# all_files is still a row-per-trial layout. 
+# The per-frame samples are in a single row 
+# in a cell as a list - you need to extract 
+# the lists to get row-per-frame layout
 
 # number off the subjects in order of date
-all_data <- all_subs %>% 
+# and make subject and trial be factors
+# Also delete practice trials and rows that 
+# were treating the ethics bits as trials
+cat("re-arranging data in order of participation date\n")
+all_data <- all_files %>% 
   arrange(date, participant, trial) %>% 
-  mutate(subject = factor(all_subs$date, levels=unique(all_subs$date), labels=1:length(unique(all_subs$date)))) %>% 
+  mutate(subject = factor(all_files$date, levels=unique(all_files$date), labels=1:length(unique(all_files$date)))) %>% 
   select(condition, subject, trial, phase, times, frames, events, trees, points) %>% 
   filter(phase=='experimental') %>% select(-phase) %>% 
   mutate(trial = as_factor(trial)) 
 
 # extract frame-by-frame data into a list of lists
+cat("extracting the frame-by-frame data from the list-cells\n")
 all_frames=list()
 for(s in levels(all_data$subject)) {
   for(t in levels(all_data$trial)) {
@@ -46,6 +54,7 @@ for(s in levels(all_data$subject)) {
 }
 
 # recombine into a frame-by-frame tibble
+cat("recombining the frame-by-frame data into a tibble\n")
 fbf = tibble()
 for(s in levels(all_data$subject)) {
   for(t in levels(all_data$trial)) {
@@ -62,9 +71,18 @@ for(s in levels(all_data$subject)) {
     fbf=bind_rows(fbf,tmp)
   }
 }
-summary(fbf)
+fbf <- fbf %>% 
+  mutate(
+    condition=as_factor(condition),
+    subject=as_factor(subject),
+    trial=as_factor(trial)
+  )
+cat("summary of the frame-by-frame data:\n")
+print(summary(fbf))
 
 # create an event-by-event df
+# This also computes and annotates with trial-wise rejection rates for apples and bananas
+# but deletes the intermediate columns for the computations
 ebe <- 
   fbf %>% 
   group_by(subject, trial) %>% 
@@ -88,25 +106,35 @@ ebe <-
   mutate(n_vis_banana=length(na.omit(unique(visit_banana)))) %>% 
   mutate(p_ign_banana=n_ign_banana/n_vis_banana) %>% 
   mutate(inter_click_interval=time-lag(time)) %>% 
+  mutate(event=as_factor(event)) %>% 
   select(-c(visit_apple,eat_apple,ign_apple,visit_banana,eat_banana,ign_banana,n_ign_apple,n_ign_banana,n_vis_apple,n_vis_banana))
-View(ebe)  
-ebe 
+cat("summary of the event-by-event data - p_ign_banana is NaN if no bananas were encountered\n")
+print(summary(ebe))  
 
-# The number of trials goes from 440 in fbf to 427 in ebe: show that all the 13 lost trials are from subject 6 from trial 8 onward (20 minus 7 is 13 missing trials) - these trials are ones in which no fruit-bearing tree was clicked on so they get filtered out while making ebe
+# The number of trials goes from 440 in fbf to 427 in ebe: 
+# show that all the 13 lost trials are from subject 6 from 
+# trial 8 onward (20 minus 7 is 13 missing trials) - 
+# these trials are ones in which no fruit-bearing tree was 
+# clicked on so they get filtered out while making ebe
+cat("elaborate which trials we lose going from fbf to ebe\n")
 i=0
 for (s in 1:22) {
   for (t in 1:20) {
     if(nrow(subset(ebe,subject==s&trial==t))==0){
       i=i+1
-      cat(i, s,t,nrow(subset(ebe,subject==s&trial==t)),'\n')
+      cat('lost trial #',i,'sub',s, 'trial',t, 'with', nrow(subset(ebe,subject==s&trial==t)), 'events of interest\n')
     }
   }
 }
 
 tbt = ebe %>% group_by(condition, subject, trial) %>% 
-  summarise(score=max(ptally, na.rm=T),
-            ici=mean(inter_click_interval, na.rm=T))
-ggscatter(tbt, x='score', y='ici',  add='reg.line', conf.int=T, facet.by='condition',
-          add.params = list(color = "condition", fill = "lightgray"))+
+  summarise(.groups='drop_last', # aggregate over trials
+    score=max(ptally, na.rm=T),
+    ici=mean(inter_click_interval, na.rm=T)
+    )
+ggscatter(
+  tbt, x='score', y='ici',  add='reg.line', conf.int=T, facet.by='condition',
+  add.params = list(color = "condition", fill = "lightgray")
+  ) +
   stat_cor(method='pearson')
   

@@ -1,0 +1,164 @@
+---
+title: "foraging-online-4"
+output: 
+  html_document:
+    toc: true
+    keep_md: TRUE
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment=NA, warning=FALSE, message=F)
+options(width = 220)
+```
+
+```{r libs, message=F}
+if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(ggpubr)){install.packages("ggpubr")} # for correlation geom, see  https://rpkgs.datanovia.com/ggpubr/reference/stat_cor.html
+```
+
+## Part 1 read in the data
+
+From previously-generated csv files.
+
+```{r}
+tbt <- 
+  read_csv("d3_trial_by_trial.csv",
+           col_types=cols(
+             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
+             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
+  pivot_longer(cols=c(score,ignap,ignba,icint),names_to='dv')
+saveRDS(tbt,'tbt.RDS')
+```
+
+
+## Part 2 explore the data
+
+Just plot all 4 metrics.
+
+```{r, 'Just plot all 4 metrics'}
+tbt <- 
+  read_csv("d3_trial_by_trial.csv",
+           col_types=cols(
+             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
+             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
+  pivot_longer(cols=c(score,ignap,ignba,icint),names_to='dv')
+ggplot(tbt,aes(x=trial,y=value,group=condition))+
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~dv, scales='free_y')+
+  geom_jitter()+geom_smooth(aes(color=condition))+
+  theme(legend.position="top")
+```
+
+How score varies
+
+```{r, 'How score varies', fig.width=7, fig.height=7}
+tbt <- 
+  read_csv("d3_trial_by_trial.csv",
+           col_types=cols(
+             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
+             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
+  pivot_longer(cols=c(score),names_to='scoredv', values_to='score') %>% 
+  mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
+  mutate(trial=as.numeric(trial))
+ggplot(tbt,aes(y=score, x=trial)) + 
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~subject) + geom_point() + geom_smooth(aes(color=condition),se=F)+
+  labs(title="Score for each subject, by trial")+theme(legend.position="top")
+```
+
+
+
+Bananas are very rarely ignored. Apples are ignored more often, and they get ignored more as the trials progress.
+
+```{r, 'Rejection rate in each condition for each fruit type, by trial', fig.width=7, fig.height=4}
+tbt <- 
+  read_csv("d3_trial_by_trial.csv",
+           col_types=cols(
+             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
+             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
+  pivot_longer(cols=c(ignap,ignba),names_to='fruit', values_to='rejection_rate') %>% 
+  mutate(fruit=factor(fruit,levels=c("ignap","ignba"),labels=c("apples","bananas"))) %>% 
+  mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
+  mutate(trial=as.numeric(trial))
+
+ggplot(tbt,aes(x=trial,y=rejection_rate,group=condition))+
+  theme_bw()+theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(), aspect.ratio = 1)+
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~fruit)+geom_smooth(aes(color=condition))+geom_jitter(width=.1,height=.01,alpha=0.5)+theme(aspect.ratio =1)+
+  labs(title="Rejection rate in each condition for each fruit type, by trial", subtitle='Each point (jittered) is one subject doing one trial. Smoothers are loess, y ~ x')+theme(legend.position="top")
+```
+
+Rejection rate for apples for each subject, by trial
+
+```{r, 'Rejection rate for apples for each subject, by trial', fig.width=7, fig.height=7}
+tbt <- 
+  read_csv("d3_trial_by_trial.csv",
+           col_types=cols(
+             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
+             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
+  pivot_longer(cols=c(ignap),names_to='apples', values_to='rejection_rate_for_apples') %>% 
+  mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
+  mutate(trial=as.numeric(trial))
+
+ggplot(tbt,aes(y=rejection_rate_for_apples, x=trial)) + 
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~subject) + geom_point() + geom_smooth(aes(color=condition),se=F)+
+  labs(title="Rejection rate for apples for each subject, by trial")+theme(legend.position="top")
+```
+
+Same but with free y axis
+
+```{r, 'Rejection rate for apples for each subject, by trial, free y', fig.width=7, fig.height=7}
+ggplot(tbt,aes(y=rejection_rate_for_apples, x=trial)) + 
+  scale_color_manual(values=c("blue","red")) +
+  facet_wrap(~subject, scales='free_y') + geom_point() + geom_smooth(aes(color=condition),se=F)+
+  labs(title="Rejection rate for apples for each subject, by trial, free y")+theme(legend.position="top")
+```
+
+Rejection rate against score
+
+```{r, 'Rejection rate against score', fig.width=7, fig.height=4}
+ggplot(tbt, aes(y=rejection_rate_for_apples, x=score)) + scale_color_manual(values=c("blue","red")) +
+  geom_jitter(width=.5,height=0.005,alpha=.5) + 
+  geom_smooth(method='lm', aes(color=condition)) +theme(aspect.ratio = 1)+ facet_wrap(~condition)+theme(legend.position="top")
+```
+
+
+
+<!-- In the rare bananas condition, ignoring apples is associated with lower scores. In the frequent bananas condition, ignoring apples is associated with higher scores. -->
+
+<!-- ```{r, fig.width=7,fig.height=4} -->
+<!-- d=read_csv("d3_trial_by_trial.csv") -->
+<!-- ggplot(d, aes(y=ignap, x=score))+ -->
+<!--   facet_wrap(~condition)+ -->
+<!--   geom_jitter()+ -->
+<!--   geom_smooth(aes(colour=condition),method='lm',formula='y~x')+theme(aspect.ratio =1) -->
+<!-- ``` -->
+
+<!-- Larger inter-click durations (slower moving around) is associated with lower scores. -->
+
+<!-- ```{r, fig.width=7,fig.height=4} -->
+<!-- d=read_csv("d3_trial_by_trial.csv") -->
+<!-- ggplot(d, aes(x=score, y=icint))+ -->
+<!--   facet_wrap(~condition)+ -->
+<!--   geom_jitter()+ -->
+<!--   geom_smooth(aes(colour=condition),method='lm',formula='y~x')+theme(aspect.ratio =1) -->
+<!-- ``` -->
+
+<!-- foo -->
+
+<!-- ```{r, fig.width=7,fig.height=4} -->
+<!-- d=read_csv("d3_trial_by_trial.csv") -->
+<!-- ggplot(d, aes(x=ignap, y=ignba))+ -->
+<!--   facet_wrap(~condition)+ -->
+<!--   geom_jitter()+ -->
+<!--   geom_smooth(aes(colour=condition),method='lm',formula='y~x')+theme(aspect.ratio =1) -->
+<!-- ``` -->
+
