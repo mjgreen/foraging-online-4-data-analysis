@@ -2,7 +2,7 @@
 title: "foraging-online-4"
 output: 
   html_document:
-    toc: true
+    # toc: true
     keep_md: TRUE
 ---
 <style type="text/css">
@@ -53,44 +53,23 @@ Mean rejection rates per subject
 
 <img src="part2_explore_the_data_files/figure-html/unnamed-chunk-3-1.png" width="30%" />
 
-
 Look at the data before excluding anything.
 
 <img src="part2_explore_the_data_files/figure-html/Score against rejection rate -1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/Score against rejection rate -2.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/Score against rejection rate -3.png" width="30%" />
 
-tbt data starts off with 427 rows. 13 from subject 6 are missing. So it would be 22*20=440.
-
-Rejection score of 0 means they ate every apple they came across and they came across at least one. Replace with NA because they are not doing the rejection behaviour at all (not just not doing it very much).
-
-
-```r
-tbt <- tbt %>%
-  mutate(rejection_rate_for_apples=ifelse(rejection_rate_for_apples==0,NA,rejection_rate_for_apples)) 
-nrow(subset(tbt,is.na(rejection_rate_for_apples))) # 173
-```
-
-```
-[1] 173
-```
-
-Remove 173 trials for NA rejection_rate_for_apples.
+Rejection rate of 0 means they ate every apple they came across and they came across at least one. Replace with NA because they are not doing the rejection behaviour at all (not just not doing it very much).
 
 
 
-Remove (3) remaining NA rows for having NA banana rejection rate -  didn't encounter any bananas
+Remove 173 trials for not doing the rejection behaviour (NA rejection_rate_for_apples)
 
 
-```r
-tbt <- tbt %>% filter(!is.na(ignba))
-```
+
+Remove 3 remaining NA rows for having NA banana rejection rate - meaning that they didn't encounter any bananas at all after a full minute of searching.
 
 
-```
-[1] 251
-```
 
-251 trials left out of 440
-
+251 trials left out of 440. Show which subjects had which trials removed.
 
 
 ```
@@ -98,31 +77,30 @@ tbt <- tbt %>% filter(!is.na(ignba))
 subject 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
      1  1 1 1 1 1 0 1 1 1  1  1  0  1  1  1  1  1  1  1  1
      2  0 1 0 0 0 0 1 0 0  0  1  0  0  0  0  0  0  0  1  1
-     9  1 1 0 0 1 1 0 1 1  1  1  1  1  1  1  1  1  1  1  1
-     11 0 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
-     12 1 1 0 1 0 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
-     16 0 0 0 0 0 0 0 0 0  1  0  0  0  0  1  0  0  0  0  0
-     19 1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
-     21 0 0 0 0 0 0 0 0 0  0  0  0  0  0  0  0  0  0  0  0
-     22 1 0 1 0 1 0 0 1 1  1  1  1  1  1  1  1  1  1  1  0
-     3  1 0 1 0 1 1 0 0 0  1  0  0  0  0  1  0  0  0  1  0
-     4  1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
-     5  0 0 0 0 0 0 0 0 1  1  1  0  0  1  1  1  0  0  0  0
-     6  1 1 1 1 1 0 1 0 0  0  0  0  0  0  0  0  0  0  0  0
-     7  0 0 0 1 0 1 0 1 0  0  0  0  0  0  0  0  0  0  0  0
-     8  0 0 0 0 0 0 0 0 0  0  0  0  0  0  0  0  1  0  0  0
-     10 0 1 1 0 1 1 1 1 0  0  0  1  0  0  0  1  0  1  1  1
-     13 1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
-     14 1 1 0 0 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
-     15 0 0 0 0 0 0 0 0 0  1  0  0  0  1  1  0  1  0  1  0
-     17 0 0 1 0 1 1 1 1 1  1  1  1  1  1  0  1  0  1  1  1
-     18 1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
-     20 0 0 1 0 0 0 0 0 1  1  0  0  0  0  0  1  0  0  0  1
+     3  1 1 0 0 1 1 0 1 1  1  1  1  1  1  1  1  1  1  1  1
+     4  0 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
+     5  1 1 0 1 0 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
+     6  0 0 0 0 0 0 0 0 0  1  0  0  0  0  1  0  0  0  0  0
+     7  1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
+     9  1 0 1 0 1 0 0 1 1  1  1  1  1  1  1  1  1  1  1  0
+     10 1 0 1 0 1 1 0 0 0  1  0  0  0  0  1  0  0  0  1  0
+     11 1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
+     12 0 0 0 0 0 0 0 0 1  1  1  0  0  1  1  1  0  0  0  0
+     13 1 1 1 1 1 0 1 0 0  0  0  0  0  0  0  0  0  0  0  0
+     14 0 0 0 1 0 1 0 1 0  0  0  0  0  0  0  0  0  0  0  0
+     15 0 0 0 0 0 0 0 0 0  0  0  0  0  0  0  0  1  0  0  0
+     16 0 1 1 0 1 1 1 1 0  0  0  1  0  0  0  1  0  1  1  1
+     17 1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
+     18 1 1 0 0 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
+     19 0 0 0 0 0 0 0 0 0  1  0  0  0  1  1  0  1  0  1  0
+     20 0 0 1 0 1 1 1 1 1  1  1  1  1  1  0  1  0  1  1  1
+     21 1 1 1 1 1 1 1 1 1  1  1  1  1  1  1  1  1  1  1  1
+     22 0 0 1 0 0 0 0 0 1  1  0  0  0  0  0  1  0  0  0  1
 ```
 
 After pruning the data
 
-<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-9-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-9-2.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-9-3.png" width="30%" />
+<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-8-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-8-2.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-8-3.png" width="30%" />
 
 
 
@@ -149,7 +127,7 @@ After pruning the data
 
 
 
-## First for the frequent-hi condition h140lo40
+## First for the condition with 40 bananas and 40 apples, hi40lo40
 
 We want to remove the effect of fatigue from the score.
 
@@ -174,13 +152,13 @@ grid <- freqhi %>%
   add_predictions(mod, "score")
 ```
 
-Plot the predictions (in black) over the raw data (in red) in the left-hand plot. The model captures the effect of fatigue quite well. In the right-hand plot show the residual scores after the effect of fatigue is factored out (i.e., the deviation from the score expected given the fatigue accrued over trials).
+Plot the predictions (in black) over the raw data (in red) in the left-hand plot. The model captures the effect of fatigue quite well. In the middle plot show the residual scores after the effect of fatigue is factored out (i.e., the deviation from the score expected given the fatigue accrued over trials). In the right-hand plot show how residualised score is affected by rejection strategy - i.e., how rejection rate affects the component of score that is unexplained by fatigue.
 
-<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-2.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-3.png" width="30%" />
+<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-12-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-12-2.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-12-3.png" width="30%" />
 
-Plot shows a significant positive correlation between adopting more strongly the strategy of rejecting low-value fruit, and obtaining higher scores after the effect of fatigue lowering scores over trials is factored out. 
+Plots show a significant positive correlation between higher rejection rates for apples and higher scores on the task, after the effect of fatigue lowering scores over trials is factored out. Left plot shows correlation lines for each subject separately. Middle plot shows the correlation line for the condition. Zero on the y axis represents the score we would expect for that trial if we only took into account how many trials they had done.
 
-<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-14-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-14-2.png" width="30%" />
+<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-2.png" width="30%" />
 
 
 <!-- In the rare bananas condition, ignoring apples is associated with lower scores. In the frequent bananas condition, ignoring apples is associated with higher scores. -->

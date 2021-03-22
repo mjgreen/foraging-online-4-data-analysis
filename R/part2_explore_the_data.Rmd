@@ -2,7 +2,7 @@
 title: "foraging-online-4"
 output: 
   html_document:
-    toc: true
+    # toc: true
     keep_md: TRUE
 ---
 <style type="text/css">
@@ -22,7 +22,7 @@ options(width = 220)
 if(!require(tidyverse)){install.packages("tidyverse")}
 if(!require(ggpubr)){install.packages("ggpubr")} # for correlation geom, see  https://rpkgs.datanovia.com/ggpubr/reference/stat_cor.html
 if(!require(modelr)){install.packages("modelr")}
-library(hexbin)
+if(!require(hexbin)){install.packages("hexbin")}
 ```
 
 ```{r, echo=F}
@@ -50,31 +50,27 @@ ggplot(ini, aes(x=subject, y=ignap)) + theme_bw()+
   geom_hline(yintercept=0)
 ```
 
-
 Look at the data before excluding anything.
 
 ```{r, 'Score against rejection rate ', echo=FALSE, out.width="30%"}
-tbt <- 
-  read_csv("d3_trial_by_trial.csv", col_types=cols(condition=col_factor(), subject=col_factor(), trial=col_factor(), score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
+tbt <- read_csv("d3_trial_by_trial.csv", col_types=cols(condition=col_factor(), subject=col_factor(), trial=col_factor(), score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
   pivot_longer(cols=c(ignap),names_to='apples', values_to='rejection_rate_for_apples') %>% 
   mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
-  mutate(trial=as.numeric(trial))
+  mutate(trial=as.numeric(trial)) %>% 
+  mutate(subject=as.numeric(subject))
 
 ggplot(tbt, aes(rejection_rate_for_apples, score)) + 
   scale_color_manual(values=c("blue","red")) +
   geom_jitter() + 
-  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
   geom_smooth(aes(color=condition))+
   theme(aspect.ratio = 1) + 
   facet_wrap(~condition) +
   theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5))+
   labs(subtitle="The effect of rejection rate on scores")
 
-
 ggplot(tbt, aes(trial, score)) + 
   scale_color_manual(values=c("blue","red")) +
   geom_jitter() + 
-  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
   geom_smooth(aes(color=condition))+
   theme(aspect.ratio = 1) + 
   facet_wrap(~condition) +
@@ -91,35 +87,25 @@ ggplot(tbt, aes(trial, rejection_rate_for_apples)) +
   ylab("reject\nrate\napples")+labs(subtitle="Rejection rate increases over trials")
 ```
 
-tbt data starts off with 427 rows. 13 from subject 6 are missing. So it would be 22*20=440.
-
-Rejection score of 0 means they ate every apple they came across and they came across at least one. Replace with NA because they are not doing the rejection behaviour at all (not just not doing it very much).
-
-```{r, echo=T}
-tbt <- tbt %>%
-  mutate(rejection_rate_for_apples=ifelse(rejection_rate_for_apples==0,NA,rejection_rate_for_apples)) 
-nrow(subset(tbt,is.na(rejection_rate_for_apples))) # 173
-```
-
-Remove 173 trials for NA rejection_rate_for_apples.
+Rejection rate of 0 means they ate every apple they came across and they came across at least one. Replace with NA because they are not doing the rejection behaviour at all (not just not doing it very much).
 
 ```{r}
-tbt <- tbt %>% 
-  filter(!is.na(rejection_rate_for_apples))
+tbt <- tbt %>% mutate(rejection_rate_for_apples=ifelse(rejection_rate_for_apples==0,NA,rejection_rate_for_apples)) 
 ```
 
-Remove (3) remaining NA rows for having NA banana rejection rate -  didn't encounter any bananas
+Remove 173 trials for not doing the rejection behaviour (NA rejection_rate_for_apples)
 
-```{r, echo=T}
+```{r}
+tbt <- tbt %>% filter(!is.na(rejection_rate_for_apples))
+```
+
+Remove 3 remaining NA rows for having NA banana rejection rate - meaning that they didn't encounter any bananas at all after a full minute of searching.
+
+```{r}
 tbt <- tbt %>% filter(!is.na(ignba))
 ```
 
-```{r}
-nrow(tbt) # 251
-```
-
-251 trials left out of 440
-
+251 trials left out of 440. Show which subjects had which trials removed.
 
 ```{r}
 with(tbt,xtabs(~subject+trial))
@@ -131,18 +117,15 @@ After pruning the data
 ggplot(tbt, aes(rejection_rate_for_apples, score)) + 
   scale_color_manual(values=c("blue","red")) +
   geom_jitter() + 
-  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
   geom_smooth(aes(color=condition))+
   theme(aspect.ratio = 1) + 
   facet_wrap(~condition) +
   theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5))+
   labs(subtitle="The effect of rejection rate on scores")
 
-
 ggplot(tbt, aes(trial, score)) + 
   scale_color_manual(values=c("blue","red")) +
   geom_jitter() + 
-  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
   geom_smooth(aes(color=condition))+
   theme(aspect.ratio = 1) + 
   facet_wrap(~condition) +
@@ -184,7 +167,7 @@ ggplot(tbt, aes(trial, rejection_rate_for_apples)) +
 
 
 
-## First for the frequent-hi condition h140lo40
+## First for the condition with 40 bananas and 40 apples, hi40lo40
 
 We want to remove the effect of fatigue from the score.
 
@@ -206,11 +189,11 @@ grid <- freqhi %>%
   add_predictions(mod, "score")
 ```
 
-Plot the predictions (in black) over the raw data (in red) in the left-hand plot. The model captures the effect of fatigue quite well. In the right-hand plot show the residual scores after the effect of fatigue is factored out (i.e., the deviation from the score expected given the fatigue accrued over trials).
+Plot the predictions (in black) over the raw data (in red) in the left-hand plot. The model captures the effect of fatigue quite well. In the middle plot show the residual scores after the effect of fatigue is factored out (i.e., the deviation from the score expected given the fatigue accrued over trials). In the right-hand plot show how residualised score is affected by rejection strategy - i.e., how rejection rate affects the component of score that is unexplained by fatigue.
 
 ```{r, out.width="30%"}
 ggplot(subset(tbt, condition=="40 bananas 40 apples"), aes(trial, score)) +
-  geom_point(color='red') +
+  geom_jitter(color='red') +
   geom_point(data=grid, color='black', size=4)
 
 freqhi <- freqhi %>% 
@@ -218,7 +201,8 @@ freqhi <- freqhi %>%
 freqhi %>% 
   ggplot(aes(trial, resid), color='red') +
   geom_ref_line(h=0)+
-  geom_jitter()
+  geom_jitter()+
+  geom_smooth(color='red')
 
 ggplot(freqhi, aes(rejection_rate_for_apples, resid)) +
   geom_point() +
@@ -229,14 +213,21 @@ ggplot(freqhi, aes(rejection_rate_for_apples, resid)) +
   # geom_point()
 ```
 
-Plot shows a significant positive correlation between adopting more strongly the strategy of rejecting low-value fruit, and obtaining higher scores after the effect of fatigue lowering scores over trials is factored out. 
+Plots show a significant positive correlation between higher rejection rates for apples and higher scores on the task, after the effect of fatigue lowering scores over trials is factored out. Left plot shows correlation lines for each subject separately. Middle plot shows the correlation line for the condition. Zero on the y axis represents the score we would expect for that trial if we only took into account how many trials they had done.
 
 ```{r, out.width="30%"}
-ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=F, add.params = list(color = "subject", fill = "lightgray"), facet.by='condition') +
-  stat_cor(method='pearson')+theme(legend.position = 'none')
+ggscatter(freqhi %>% mutate(subject=as_factor(subject)), x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=F, add.params = list(color = "subject", fill = "lightgray"), facet.by='condition') + 
+  # stat_cor(method='pearson')+
+  theme(legend.position = 'none') + 
+  labs(subtitle='line per subject') + 
+  ylab("score (residualised)") +
+  geom_ref_line(h=0,colour='grey')
 
-ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=T, add.params = list(color = "red", fill = "lightgray"), facet.by='condition') +
-  stat_cor(method='pearson')
+ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=T, add.params = list(color = "red", fill = "lightgray"), facet.by='condition') + 
+  stat_cor(method='pearson') + 
+  labs(subtitle='line for the condition') +
+  ylab("score (residualised)") +
+  geom_ref_line(h=0,colour='grey')
 ```
 
 
