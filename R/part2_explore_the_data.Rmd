@@ -21,115 +21,223 @@ options(width = 220)
 ```{r libs, message=F}
 if(!require(tidyverse)){install.packages("tidyverse")}
 if(!require(ggpubr)){install.packages("ggpubr")} # for correlation geom, see  https://rpkgs.datanovia.com/ggpubr/reference/stat_cor.html
+if(!require(modelr)){install.packages("modelr")}
+library(hexbin)
 ```
 
-## Part 1 read in the data
-
-From previously-generated csv files.
-
-```{r}
-tbt <- 
-  read_csv("d3_trial_by_trial.csv",
-           col_types=cols(
-             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
-             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
-  pivot_longer(cols=c(score,ignap,ignba,icint),names_to='dv')
-saveRDS(tbt,'tbt.RDS')
+```{r, echo=F}
+ini=read_csv('d3_trial_by_trial.csv')
 ```
 
-
-## Part 2 explore the data
-
-Just plot all 4 metrics.
-
-```{r, 'Just plot all 4 metrics'}
-tbt <- 
-  read_csv("d3_trial_by_trial.csv",
-           col_types=cols(
-             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
-             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
-  pivot_longer(cols=c(score,ignap,ignba,icint),names_to='dv')
-ggplot(tbt,aes(x=trial,y=value,group=condition))+
-  scale_color_manual(values=c("blue","red"))+
-  facet_wrap(~dv, scales='free_y')+
-  geom_jitter()+geom_smooth(aes(color=condition))+
-  theme(legend.position="top")
+```{r, echo=F}
+with(ini,xtabs(~subject+trial))
 ```
 
-How score varies
+A full design would have 22 * 20 = 440 rows. Actually there are 427 rows. All the (13) missing trials are from subject 6.
 
-```{r, 'How score varies', fig.width=7, fig.height=7}
-tbt <- 
-  read_csv("d3_trial_by_trial.csv",
-           col_types=cols(
-             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
-             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
-  pivot_longer(cols=c(score),names_to='scoredv', values_to='score') %>% 
-  mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
-  mutate(trial=as.numeric(trial))
-ggplot(tbt,aes(y=score, x=trial)) + 
-  scale_color_manual(values=c("blue","red"))+
-  facet_wrap(~subject) + geom_point() + geom_smooth(aes(color=condition),se=F)+
-  labs(title="Score for each subject, by trial")+theme(legend.position="top")
+Mean rejection rates per subject
+
+```{r, out.width="30%"}
+ini$subject=as_factor(ini$subject)
+ggplot(ini, aes(x=subject, y=ignap)) + theme_bw()+
+  facet_wrap(~condition, scales='free_x')+
+  stat_summary(geom='pointrange',fun.data='mean_se',color='black')+
+  stat_summary(geom='point',fun = 'mean', pch=21, color='red',fill='red', size=5)+
+  stat_summary(aes(y=ignba),geom='pointrange',fun.data='mean_se',color='yellow')+
+  stat_summary(aes(y=ignba),geom='point',fun = 'mean', pch=21, color='yellow',fill='yellow', size=3)+
+  labs(subtitle='mean apple rejection rates per subject')+
+  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(), aspect.ratio = 1)+
+  geom_hline(yintercept=0)
 ```
 
 
+Look at the data before excluding anything.
 
-Bananas are very rarely ignored. Apples are ignored more often, and they get ignored more as the trials progress.
-
-```{r, 'Rejection rate in each condition for each fruit type, by trial', fig.width=7, fig.height=4}
+```{r, 'Score against rejection rate ', echo=FALSE, out.width="30%"}
 tbt <- 
-  read_csv("d3_trial_by_trial.csv",
-           col_types=cols(
-             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
-             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
-  pivot_longer(cols=c(ignap,ignba),names_to='fruit', values_to='rejection_rate') %>% 
-  mutate(fruit=factor(fruit,levels=c("ignap","ignba"),labels=c("apples","bananas"))) %>% 
-  mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
-  mutate(trial=as.numeric(trial))
-
-ggplot(tbt,aes(x=trial,y=rejection_rate,group=condition))+
-  theme_bw()+theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(), aspect.ratio = 1)+
-  scale_color_manual(values=c("blue","red"))+
-  facet_wrap(~fruit)+geom_smooth(aes(color=condition))+geom_jitter(width=.1,height=.01,alpha=0.5)+theme(aspect.ratio =1)+
-  labs(title="Rejection rate in each condition for each fruit type, by trial", subtitle='Each point (jittered) is one subject doing one trial. Smoothers are loess, y ~ x')+theme(legend.position="top")
-```
-
-Rejection rate for apples for each subject, by trial
-
-```{r, 'Rejection rate for apples for each subject, by trial', fig.width=7, fig.height=7}
-tbt <- 
-  read_csv("d3_trial_by_trial.csv",
-           col_types=cols(
-             condition=col_factor(), subject=col_factor(), trial=col_factor(), 
-             score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
+  read_csv("d3_trial_by_trial.csv", col_types=cols(condition=col_factor(), subject=col_factor(), trial=col_factor(), score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
   pivot_longer(cols=c(ignap),names_to='apples', values_to='rejection_rate_for_apples') %>% 
   mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
   mutate(trial=as.numeric(trial))
 
-ggplot(tbt,aes(y=rejection_rate_for_apples, x=trial)) + 
-  scale_color_manual(values=c("blue","red"))+
-  facet_wrap(~subject) + geom_point() + geom_smooth(aes(color=condition),se=F)+
-  labs(title="Rejection rate for apples for each subject, by trial")+theme(legend.position="top")
-```
-
-Same but with free y axis
-
-```{r, 'Rejection rate for apples for each subject, by trial, free y', fig.width=7, fig.height=7}
-ggplot(tbt,aes(y=rejection_rate_for_apples, x=trial)) + 
+ggplot(tbt, aes(rejection_rate_for_apples, score)) + 
   scale_color_manual(values=c("blue","red")) +
-  facet_wrap(~subject, scales='free_y') + geom_point() + geom_smooth(aes(color=condition),se=F)+
-  labs(title="Rejection rate for apples for each subject, by trial, free y")+theme(legend.position="top")
+  geom_jitter() + 
+  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
+  geom_smooth(aes(color=condition))+
+  theme(aspect.ratio = 1) + 
+  facet_wrap(~condition) +
+  theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5))+
+  labs(subtitle="The effect of rejection rate on scores")
+
+
+ggplot(tbt, aes(trial, score)) + 
+  scale_color_manual(values=c("blue","red")) +
+  geom_jitter() + 
+  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
+  geom_smooth(aes(color=condition))+
+  theme(aspect.ratio = 1) + 
+  facet_wrap(~condition) +
+  theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5))+
+  labs(subtitle="The effect of fatigue on scores")
+
+ggplot(tbt, aes(trial, rejection_rate_for_apples)) +
+  scale_color_manual(values=c("blue","red")) +
+  geom_jitter() +
+  geom_smooth(aes(color=condition))+
+  theme(aspect.ratio = 1) + 
+  facet_wrap(~condition) +
+  theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5))+
+  ylab("reject\nrate\napples")+labs(subtitle="Rejection rate increases over trials")
 ```
 
-Rejection rate against score
+tbt data starts off with 427 rows. 13 from subject 6 are missing. So it would be 22*20=440.
 
-```{r, 'Rejection rate against score', fig.width=7, fig.height=4}
-ggplot(tbt, aes(y=rejection_rate_for_apples, x=score)) + scale_color_manual(values=c("blue","red")) +
-  geom_jitter(width=.5,height=0.005,alpha=.5) + 
-  geom_smooth(method='lm', aes(color=condition)) +theme(aspect.ratio = 1)+ facet_wrap(~condition)+theme(legend.position="top")
+Rejection score of 0 means they ate every apple they came across and they came across at least one. Replace with NA because they are not doing the rejection behaviour at all (not just not doing it very much).
+
+```{r, echo=T}
+tbt <- tbt %>%
+  mutate(rejection_rate_for_apples=ifelse(rejection_rate_for_apples==0,NA,rejection_rate_for_apples)) 
+nrow(subset(tbt,is.na(rejection_rate_for_apples))) # 173
 ```
 
+Remove 173 trials for NA rejection_rate_for_apples.
+
+```{r}
+tbt <- tbt %>% 
+  filter(!is.na(rejection_rate_for_apples))
+```
+
+Remove (3) remaining NA rows for having NA banana rejection rate -  didn't encounter any bananas
+
+```{r, echo=T}
+tbt <- tbt %>% filter(!is.na(ignba))
+```
+
+```{r}
+nrow(tbt) # 251
+```
+
+251 trials left out of 440
+
+
+```{r}
+with(tbt,xtabs(~subject+trial))
+```
+
+After pruning the data
+
+```{r, echo=FALSE, out.width="30%"}
+ggplot(tbt, aes(rejection_rate_for_apples, score)) + 
+  scale_color_manual(values=c("blue","red")) +
+  geom_jitter() + 
+  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
+  geom_smooth(aes(color=condition))+
+  theme(aspect.ratio = 1) + 
+  facet_wrap(~condition) +
+  theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5))+
+  labs(subtitle="The effect of rejection rate on scores")
+
+
+ggplot(tbt, aes(trial, score)) + 
+  scale_color_manual(values=c("blue","red")) +
+  geom_jitter() + 
+  # geom_smooth(method='lm', formula ='y~x', se=F, aes(color=condition)) +
+  geom_smooth(aes(color=condition))+
+  theme(aspect.ratio = 1) + 
+  facet_wrap(~condition) +
+  theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5))+
+  labs(subtitle="The effect of fatigue on scores")
+
+ggplot(tbt, aes(trial, rejection_rate_for_apples)) +
+  scale_color_manual(values=c("blue","red")) +
+  geom_jitter() +
+  geom_smooth(aes(color=condition))+
+  theme(aspect.ratio = 1) + 
+  facet_wrap(~condition) +
+  theme(legend.position="top", axis.title.y = element_text(angle = 0, vjust=0.5)) +
+  ylab("reject\nrate\napples")+labs(subtitle="Rejection rate increases over trials")
+```
+
+
+
+<!-- Score gets worse over trials - the effect of fatigue -->
+
+<!-- ```{r} -->
+<!-- ggplot(tbt, aes(trial, score)) + -->
+<!--   scale_color_manual(values=c("blue","red")) + -->
+<!--   facet_wrap(~condition) + -->
+<!--   geom_smooth(method='lm', aes(color=condition)) + -->
+<!--   geom_point() -->
+<!-- ``` -->
+
+<!-- Rejection strategy increases scores in the frequent-high-value condition only -->
+
+<!-- ```{r} -->
+<!-- ggplot(tbt, aes(rejection_rate_for_apples, score)) + -->
+<!--   scale_color_manual(values=c("blue","red")) + -->
+<!--   facet_wrap(~condition) + -->
+<!--   geom_smooth(aes(color=condition)) + -->
+<!--   geom_point() -->
+
+<!-- ``` -->
+
+
+
+## First for the frequent-hi condition h140lo40
+
+We want to remove the effect of fatigue from the score.
+
+```{r, echo=T}
+freqhi <- subset(tbt, condition=="40 bananas 40 apples") 
+```
+
+First build a model of the influence of trial fatigue.
+
+```{r, echo=TRUE}
+mod <- lm(score ~ trial, data = freqhi)
+```
+
+Now make a grid to generate predictions. 
+
+```{r, echo=T}
+grid <- freqhi %>% 
+  data_grid(trial) %>% 
+  add_predictions(mod, "score")
+```
+
+Plot the predictions (in black) over the raw data (in red) in the left-hand plot. The model captures the effect of fatigue quite well. In the right-hand plot show the residual scores after the effect of fatigue is factored out (i.e., the deviation from the score expected given the fatigue accrued over trials).
+
+```{r, out.width="30%"}
+ggplot(subset(tbt, condition=="40 bananas 40 apples"), aes(trial, score)) +
+  geom_point(color='red') +
+  geom_point(data=grid, color='black', size=4)
+
+freqhi <- freqhi %>% 
+  add_residuals(mod)
+freqhi %>% 
+  ggplot(aes(trial, resid), color='red') +
+  geom_ref_line(h=0)+
+  geom_jitter()
+
+ggplot(freqhi, aes(rejection_rate_for_apples, resid)) +
+  geom_point() +
+  geom_smooth(color='red')
+  # scale_color_manual(values=c("blue","red")) +
+  # facet_wrap(~condition) +
+  # geom_smooth(aes(color=condition)) +
+  # geom_point()
+```
+
+Plot shows a significant positive correlation between adopting more strongly the strategy of rejecting low-value fruit, and obtaining higher scores after the effect of fatigue lowering scores over trials is factored out. 
+
+```{r, out.width="30%"}
+ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=F, add.params = list(color = "subject", fill = "lightgray"), facet.by='condition') +
+  stat_cor(method='pearson')+theme(legend.position = 'none')
+
+ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=T, add.params = list(color = "red", fill = "lightgray"), facet.by='condition') +
+  stat_cor(method='pearson')
+```
 
 
 <!-- In the rare bananas condition, ignoring apples is associated with lower scores. In the frequent bananas condition, ignoring apples is associated with higher scores. -->

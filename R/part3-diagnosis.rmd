@@ -1,0 +1,44 @@
+---
+title: "foraging-online-4"
+output: 
+  html_document:
+    toc: true
+    keep_md: TRUE
+---
+<style type="text/css">
+.main-container {
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment=NA, warning=FALSE, message=F)
+options(width = 220)
+```
+
+```{r libs, message=F}
+if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(ggpubr)){install.packages("ggpubr")} # for correlation geom, see  https://rpkgs.datanovia.com/ggpubr/reference/stat_cor.html
+```
+
+```{r}
+d = read_csv(
+  "d3_trial_by_trial.csv",
+  col_types=cols(
+    condition=col_factor(), subject=col_factor(), trial=col_factor(), 
+    score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double()
+    )
+  )
+```
+
+"Rejection rate" is the rejection rate for apples. In the 40-banana 40-apple condition, the best strategy is to ignore apples to concentrate on bananas that are relatively plentiful, rejection rate should be high. In the 10-banana 70-apple condition, the best strategy is to eat all the fruit you come across, so rejection rates should be lower.
+
+```{r}
+ggplot(d, aes(y=ignap,x=condition)) +
+  geom_boxplot()
+```
+
+
+
