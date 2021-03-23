@@ -129,13 +129,17 @@ write_csv(ebe,'d2_event_by_event.csv')
 # }
 # aggregate over individual events to get trial-level summaries
 tbt <- ebe %>% 
-  group_by(condition, subject, trial) %>% 
-  summarise(
+  group_by(subject, condition, trial) %>% 
+  summarise(.groups='drop_last',
     score=max(ptally,na.rm=TRUE),
     ignap=mean(p_ign_apple, na.rm=TRUE),
     ignba=mean(p_ign_banana, na.rm=TRUE),
     icint=mean(inter_click_interval, na.rm=TRUE)
-  )
+  ) %>% 
+  ungroup() %>% 
+  mutate(condition_labs=condition) %>% 
+  mutate(condition=factor(condition_labs, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
+  select(condition, condition_labs, subject, trial, everything())
 message("summary of the trial by trial data")
 print(summary(tbt))
 write_csv(tbt,'d3_trial_by_trial.csv')

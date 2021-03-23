@@ -26,7 +26,8 @@ if(!require(hexbin)){install.packages("hexbin")}
 ```
 
 ```{r, echo=F}
-ini=read_csv('d3_trial_by_trial.csv')
+my_cols = cols(condition='f', subject='f', trial='f', score='i', ignap='d', ignba='d', icint='d')
+ini <- read_csv("d3_trial_by_trial.csv", col_types=my_cols)
 ```
 
 ```{r, echo=F}
@@ -38,14 +39,15 @@ A full design would have 22 * 20 = 440 rows. Actually there are 427 rows. All th
 Mean rejection rates per subject
 
 ```{r, out.width="30%"}
-ini$subject=as_factor(ini$subject)
-ggplot(ini, aes(x=subject, y=ignap)) + theme_bw()+
+pdata = ini %>% 
+  pivot_longer(cols=c(ignap, ignba), names_to='fruit', values_to='rejection_rate') %>% 
+  mutate(fruit=ifelse(fruit=="ignap","apples","bananas"))
+ggplot(pdata, aes(x=subject, y=rejection_rate)) +
+  theme_bw()+
   facet_wrap(~condition, scales='free_x')+
-  stat_summary(geom='pointrange',fun.data='mean_se',color='black')+
-  stat_summary(geom='point',fun = 'mean', pch=21, color='red',fill='red', size=5)+
-  stat_summary(aes(y=ignba),geom='pointrange',fun.data='mean_se',color='yellow')+
-  stat_summary(aes(y=ignba),geom='point',fun = 'mean', pch=21, color='yellow',fill='yellow', size=3)+
-  labs(subtitle='mean apple rejection rates per subject')+
+  stat_summary(geom='pointrange',fun.data='mean_se', aes(color=fruit))+
+  stat_summary(geom='point',fun = 'mean', pch=21, aes(color=fruit), size=5)+
+  labs(subtitle='mean rejection rates per subject')+
   theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(), aspect.ratio = 1)+
   geom_hline(yintercept=0)
 ```
@@ -53,11 +55,10 @@ ggplot(ini, aes(x=subject, y=ignap)) + theme_bw()+
 Look at the data before excluding anything.
 
 ```{r, 'Score against rejection rate ', echo=FALSE, out.width="30%"}
-tbt <- read_csv("d3_trial_by_trial.csv", col_types=cols(condition=col_factor(), subject=col_factor(), trial=col_factor(), score=col_integer(), ignap=col_double(), ignba=col_double(), icint=col_double())) %>% 
-  pivot_longer(cols=c(ignap),names_to='apples', values_to='rejection_rate_for_apples') %>% 
-  mutate(condition=factor(condition, levels=c("hi10lo70","hi40lo40"), labels=c("10 bananas 70 apples", "40 bananas 40 apples"))) %>% 
+tbt <- read_csv("d3_trial_by_trial.csv", col_types=my_cols) %>% 
+  pivot_longer(cols=c(ignap),names_to='apples', values_to='rejection_rate_for_apples')  %>% 
   mutate(trial=as.numeric(trial)) %>% 
-  mutate(subject=as.numeric(subject))
+  mutate(subject=as.numeric(as.character(subject)))
 
 ggplot(tbt, aes(rejection_rate_for_apples, score)) + 
   scale_color_manual(values=c("blue","red")) +
@@ -224,12 +225,13 @@ ggscatter(freqhi %>% mutate(subject=as_factor(subject)), x="rejection_rate_for_a
   geom_ref_line(h=0,colour='grey')
 
 ggplot(freqhi %>% mutate(subject=as_factor(subject)), aes(x=rejection_rate_for_apples, y=resid)) +
-  facet_grid(~condition)+
+  facet_grid(~condition) +
+  geom_point(aes(group=subject, color=subject, pch=subject)) +
   geom_smooth(se=F,method='lm',aes(group=subject, color=subject))+
   labs(subtitle='line per subject') + 
   ylab("score (residualised)") +
   theme_bw() +
-  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())#+ylim(c(-35,22))
+  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
 
 ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=T, add.params = list(color = "red", fill = "lightgray"), facet.by='condition') + 
   stat_cor(method='pearson') + 
@@ -238,6 +240,33 @@ ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf
   geom_ref_line(h=0,colour='grey')
 ```
 
+```{r}
+ggscatter(freqhi %>% filter(subject!=3) %>% mutate(subject=as_factor(subject)), x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=F, add.params = list(color = "subject", fill = "lightgray"), facet.by='condition') + 
+  # stat_cor(method='pearson')+
+  theme(legend.position = 'none') + 
+  labs(subtitle='line per subject') + 
+  ylab("score (residualised)") +
+  labs(subtitle = 'after removing subject 3')
+#+
+  # geom_ref_line(h=0,colour='grey')
+
+```
+
+
+
+
+
+```{r}
+# add intercept and slope to freqhi for an lem fitted to each subject
+by_subject <- freqhi %>% 
+  group_by(subject,condition) %>% 
+  nest()
+subject_model <- function(df){
+  lm(resid ~ rejection_rate_for_apples, data=df)
+}
+by_subject <- by_subject %>% 
+  mutate(model=map(data,subject_model))
+```
 
 <!-- In the rare bananas condition, ignoring apples is associated with lower scores. In the frequent bananas condition, ignoring apples is associated with higher scores. -->
 
