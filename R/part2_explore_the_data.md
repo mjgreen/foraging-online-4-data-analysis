@@ -156,9 +156,9 @@ Plot the predictions (in black) over the raw data (in red) in the left-hand plot
 
 <img src="part2_explore_the_data_files/figure-html/unnamed-chunk-12-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-12-2.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-12-3.png" width="30%" />
 
-Plots show a significant positive correlation between higher rejection rates for apples and higher scores on the task, after the effect of fatigue lowering scores over trials is factored out. Left plot shows correlation lines for each subject separately. Middle plot shows the correlation line for the condition. Zero on the y axis represents the score we would expect for that trial if we only took into account how many trials they had done.
+Plots show a significant positive correlation between higher rejection rates for apples and higher scores on the task, after the effect of fatigue lowering scores over trials is factored out. Left plot shows correlation lines for each subject separately. Middle plot shows correlation lines for each subject without the raw data. Right plot shows the correlation line for the condition. Zero on the y axis represents the score we would expect for that trial if we only took into account how many trials they had done.
 
-<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-2.png" width="30%" />
+<img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-1.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-2.png" width="30%" /><img src="part2_explore_the_data_files/figure-html/unnamed-chunk-13-3.png" width="30%" />
 
 
 <!-- In the rare bananas condition, ignoring apples is associated with lower scores. In the frequent bananas condition, ignoring apples is associated with higher scores. -->

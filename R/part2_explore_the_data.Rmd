@@ -213,7 +213,7 @@ ggplot(freqhi, aes(rejection_rate_for_apples, resid)) +
   # geom_point()
 ```
 
-Plots show a significant positive correlation between higher rejection rates for apples and higher scores on the task, after the effect of fatigue lowering scores over trials is factored out. Left plot shows correlation lines for each subject separately. Middle plot shows the correlation line for the condition. Zero on the y axis represents the score we would expect for that trial if we only took into account how many trials they had done.
+Plots show a significant positive correlation between higher rejection rates for apples and higher scores on the task, after the effect of fatigue lowering scores over trials is factored out. Left plot shows correlation lines for each subject separately. Middle plot shows correlation lines for each subject without the raw data. Right plot shows the correlation line for the condition. Zero on the y axis represents the score we would expect for that trial if we only took into account how many trials they had done.
 
 ```{r, out.width="30%"}
 ggscatter(freqhi %>% mutate(subject=as_factor(subject)), x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=F, add.params = list(color = "subject", fill = "lightgray"), facet.by='condition') + 
@@ -222,6 +222,14 @@ ggscatter(freqhi %>% mutate(subject=as_factor(subject)), x="rejection_rate_for_a
   labs(subtitle='line per subject') + 
   ylab("score (residualised)") +
   geom_ref_line(h=0,colour='grey')
+
+ggplot(freqhi %>% mutate(subject=as_factor(subject)), aes(x=rejection_rate_for_apples, y=resid)) +
+  facet_grid(~condition)+
+  geom_smooth(se=F,method='lm',aes(group=subject, color=subject))+
+  labs(subtitle='line per subject') + 
+  ylab("score (residualised)") +
+  theme_bw() +
+  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())#+ylim(c(-35,22))
 
 ggscatter(freqhi, x="rejection_rate_for_apples", y="resid", add='reg.line', conf.int=T, add.params = list(color = "red", fill = "lightgray"), facet.by='condition') + 
   stat_cor(method='pearson') + 
